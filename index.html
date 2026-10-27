@@ -301,10 +301,15 @@
     border: 1px solid #233554;
   }
 
-  button:hover {
+  button:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(100, 255, 218, 0.2);
     border-color: #64ffda;
+  }
+
+  button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 
   .success {
@@ -313,6 +318,68 @@
     color: #64ffda;
     font-size: 0.8rem;
     display: none;
+  }
+
+  .error {
+    text-align: center;
+    margin-top: 8px;
+    color: #ff6b6b;
+    font-size: 0.8rem;
+    display: none;
+  }
+
+  /* ===== بخش نتیجه ارسال ===== */
+  .result-section {
+    display: none;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 2px dashed #233554;
+    animation: fadeIn 0.35s ease;
+  }
+
+  .result-section.show {
+    display: block;
+  }
+
+  .result-section h2 {
+    font-size: 0.95rem;
+    color: #64ffda;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+
+  .result-text-box {
+    background: #0a192f;
+    border: 1px solid #233554;
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: #ccd6f6;
+    white-space: pre-wrap;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: 10px;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 8px;
+  }
+
+  .action-buttons button {
+    margin-top: 0;
+    font-size: 0.8rem;
+    padding: 10px;
+  }
+
+  .btn-copy {
+    background: linear-gradient(135deg, #2d5a88, #112240);
+  }
+
+  .btn-download {
+    background: linear-gradient(135deg, #1b6a5a, #0a192f);
+    color: #64ffda;
   }
 </style>
 </head>
@@ -358,7 +425,6 @@
         <option value="Evolve 3">Evolve 3</option>
         <option value="Evolve 4">Evolve 4</option>
         <option value="Evolve 5">Evolve 5</option>
-        <option value="Evolve 5">Evolve 6</option>
       </optgroup>
       <optgroup label="Super Minds">
         <option value="Super Minds 1">Super Minds 1</option>
@@ -501,11 +567,29 @@
     <textarea id="note" placeholder="اینجا توضیحاتت رو بنویس..."></textarea>
   </div>
 
-  <button id="saveBtn">ذخیره یادداشت</button>
-  <p class="success" id="success">✅ یادداشت با موفقیت ذخیره شد!</p>
+  <button id="saveBtn">ذخیره و ارسال به تلگرام</button>
+  
+  <!-- بخش وضعیت ارسال -->
+  <p class="success" id="success">✅ یادداشت با موفقیت به تلگرام ارسال شد!</p>
+  <p class="error" id="errorMsg">❌ ارسال به تلگرام با خطا مواجه شد (ولی متن شما ذخیره شد).</p>
+
+  <!-- بخش نمایش نتیجه -->
+  <div class="result-section" id="resultSection">
+    <h2>📄 یادداشت شما</h2>
+    <div class="result-text-box" id="resultTextBox"></div>
+    <div class="action-buttons">
+      <button class="btn-copy" id="copyBtn">📋 کپی متن</button>
+      <button class="btn-download" id="downloadBtn">💾 دانلود فایل تکست</button>
+    </div>
+  </div>
 </div>
 
 <script>
+  // ===== تنظیمات تلگرام =====
+  const TELEGRAM_BOT_TOKEN = '6923568496:AAHM_gMcdsy-O712NIoj87NbVe1fp7auoiw';
+  const TELEGRAM_CHAT_ID = '1209515299';
+  const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+
   // ===== آکاردئون =====
   function toggleAccordion(id) {
     const section = document.getElementById(id);
@@ -635,11 +719,87 @@
   });
   updateMentionSummary();
 
-  // ===== ذخیره =====
+  // ===== ارسال به تلگرام =====
+  async function sendToTelegram(text) {
+    try {
+      const response = await fetch(TELEGRAM_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: TELEGRAM_CHAT_ID,
+          text: text,
+          parse_mode: 'HTML'
+        })
+      });
+      const result = await response.json();
+      if (!result.ok) throw new Error(result.description || 'خطای تلگرام');
+      return true;
+    } catch (error) {
+      console.error('Telegram Error:', error);
+      throw error;
+    }
+  }
+
+  // ===== ساخت متن ساده =====
+  function buildPlainText(data) {
+    const separator = '━━━━━━━━━━━━━━━';
+    let text = `📝 یادداشت جدید\n${separator}\n\n`;
+    text += `👤 نام: ${data.name || '—'}\n\n`;
+    if (data.book) text += `📚 کتاب: ${data.book}\n\n`;
+    if (data.reason) text += `📌 دلیل یادداشت: ${data.reason}\n\n`;
+    if (data.mentions.length > 0) text += `👥 اشاره به: ${data.mentions.join('، ')}\n\n`;
+    if (data.payType || data.amount) {
+      text += `💰 شهریه:\n`;
+      if (data.payType) text += `   • نوع پرداخت: ${data.payType}\n`;
+      if (data.amount) text += `   • مبلغ: ${data.amount} تومان\n`;
+      text += `\n`;
+    }
+    if (data.dateText || data.time) {
+      text += `📅 تاریخ و ساعت:\n`;
+      if (data.dateText) text += `   • تاریخ: ${data.dateText}\n`;
+      if (data.time) text += `   • ساعت: ${data.time}\n`;
+      text += `\n`;
+    }
+    if (data.note) text += `📄 توضیحات:\n${data.note}\n\n`;
+    text += `${separator}\n⏰ زمان ثبت: ${new Date().toLocaleString('fa-IR')}`;
+    return text;
+  }
+
+  // ===== ساخت متن تلگرام =====
+  function buildTelegramMessage(data) {
+    const separator = '━━━━━━━━━━━━━━━';
+    let text = `📝 <b>یادداشت جدید</b>\n${separator}\n\n`;
+    text += `👤 <b>نام:</b> ${data.name || '—'}\n\n`;
+    if (data.book) text += `📚 <b>کتاب:</b> ${data.book}\n\n`;
+    if (data.reason) text += `📌 <b>دلیل یادداشت:</b> ${data.reason}\n\n`;
+    if (data.mentions.length > 0) text += `👥 <b>اشاره به:</b> ${data.mentions.join('، ')}\n\n`;
+    if (data.payType || data.amount) {
+      text += `💰 <b>شهریه:</b>\n`;
+      if (data.payType) text += `   • نوع پرداخت: ${data.payType}\n`;
+      if (data.amount) text += `   • مبلغ: ${data.amount} تومان\n`;
+      text += `\n`;
+    }
+    if (data.dateText || data.time) {
+      text += `📅 <b>تاریخ و ساعت:</b>\n`;
+      if (data.dateText) text += `   • تاریخ: ${data.dateText}\n`;
+      if (data.time) text += `   • ساعت: ${data.time}\n`;
+      text += `\n`;
+    }
+    if (data.note) text += `📄 <b>توضیحات:</b>\n${data.note}\n\n`;
+    text += `${separator}\n⏰ <i>زمان ثبت:</i> ${new Date().toLocaleString('fa-IR')}`;
+    return text;
+  }
+
+  // ===== رویداد دکمه ارسال =====
   const saveBtn = document.getElementById('saveBtn');
   const success = document.getElementById('success');
+  const errorMsg = document.getElementById('errorMsg');
+  const resultSection = document.getElementById('resultSection');
+  const resultTextBox = document.getElementById('resultTextBox');
+  
+  let lastPlainText = '';
 
-  saveBtn.addEventListener('click', () => {
+  saveBtn.addEventListener('click', async () => {
     const amountValue = getAmountValue();
 
     const data = {
@@ -658,6 +818,7 @@
       note: document.getElementById('note').value.trim()
     };
 
+    // اعتبارسنجی
     if (!data.name) { alert('لطفاً نام را وارد کنید!'); return; }
     if (!data.reason) { alert('لطفاً دلیل یادداشت را انتخاب کنید!'); return; }
     if (!data.day || !data.year) { alert('لطفاً تاریخ شمسی را کامل وارد کنید!'); return; }
@@ -665,12 +826,83 @@
       alert('لطفاً مقدار دلخواه شهریه را وارد کنید!'); return;
     }
 
-    localStorage.setItem('dailyNote', JSON.stringify(data));
+    // ==========================================
+    // 1. اول متن آماده میشه و فوری در سایت نمایش داده میشه
+    // ==========================================
+    lastPlainText = buildPlainText(data);
+    resultTextBox.textContent = lastPlainText;
+    
+    // باز کردن باکس نتیجه و اسکرول خودکار به سمتش (تا کاربر ببینه)
+    resultSection.classList.add('show');
+    resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-    success.style.display = 'block';
-    setTimeout(() => success.style.display = 'none', 2500);
+    // مخفی کردن پیام‌های قبلی
+    success.style.display = 'none';
+    errorMsg.style.display = 'none';
 
-    console.log('ذخیره شد:', data);
+    // ==========================================
+    // 2. شروع ارسال در پس‌زمینه به تلگرام
+    // ==========================================
+    saveBtn.disabled = true;
+    saveBtn.textContent = '⏳ در حال ارسال به تلگرام...';
+
+    const telegramText = buildTelegramMessage(data);
+
+    try {
+      await sendToTelegram(telegramText);
+
+      localStorage.setItem('dailyNote', JSON.stringify(data));
+
+      success.style.display = 'block';
+      setTimeout(() => success.style.display = 'none', 3500);
+
+    } catch (error) {
+      errorMsg.style.display = 'block';
+      setTimeout(() => errorMsg.style.display = 'none', 3500);
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'ذخیره و ارسال به تلگرام';
+    }
+  });
+
+  // ===== دکمه کپی =====
+  document.getElementById('copyBtn').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(lastPlainText);
+      const btn = document.getElementById('copyBtn');
+      const originalText = btn.textContent;
+      btn.textContent = '✅ کپی شد!';
+      setTimeout(() => btn.textContent = originalText, 2000);
+    } catch (err) {
+      const textarea = document.createElement('textarea');
+      textarea.value = lastPlainText;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      
+      const btn = document.getElementById('copyBtn');
+      const originalText = btn.textContent;
+      btn.textContent = '✅ کپی شد!';
+      setTimeout(() => btn.textContent = originalText, 2000);
+    }
+  });
+
+  // ===== دکمه دانلود فایل تکست =====
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    const blob = new Blob([lastPlainText], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `یادداشت_${dateStr}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   });
 
   // ===== بارگذاری =====
@@ -684,7 +916,7 @@
     if (Array.isArray(data.mentions)) {
       mentionCheckboxes.forEach(id => {
         const cb = document.getElementById(id);
-        cb.checked = data.mentions.includes(id === 'anita' ? 'آنیتا' : id === 'hana' ? 'هنا' : 'آراد');
+        cb.checked = data.mentions.includes(cb.value);
       });
     }
 
