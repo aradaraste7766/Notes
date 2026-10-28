@@ -439,15 +439,16 @@
     <select id="reason">
       <option value="">— انتخاب کنید —</option>
       <option value="امتحان نداده">امتحان نداده</option>
-      <option value="امتحان نداده">پول کتاب نداده</option>
       <option value="شهریه نداده">شهریه نداده</option>
       <option value="اکانت ندارد">اکانت ندارد</option>
       <option value="بدهکار است">بدهکار است</option>
-      <option value="بدهکار است">زنگ بزنید </option>
-      <option value="بدهکار است">کتاب امانت برده  </option>
-      <option value="تایم کلاس می‌خواهد">کلاس خصوصی میخواد</option>
+      <option value="تایم کلاس می‌خواهد">تایم کلاس می‌خواهد</option>
       <option value="غیبت داشته">غیبت داشته</option>
       <option value="کارنامه">کارنامه</option>
+      <option value="تو لیست معلم  نیست ولی تو گروه هست ">تو لیست معلم  نیست ولی تو گروه هست </option>
+      <option value="تو لیست معلم  هست  ولی غیبت  زیاد داشت  گروه هست ">تو لیست معلم  هست  ولی غیبت  زیاد داشت  گروه هست </option>
+      <option value="تو گروه هست ولی تو  لیست معلم نه ">تو گروه هست ولی تو  لیست معلم نه  </option>
+      <option value="تو کد  کلاس نیست ">تو کد  کلاس نیست </option>
       <option value="مشکل فنی">مشکل فنی</option>
       <option value="سایر">سایر</option>
     </select>
@@ -470,12 +471,42 @@
         </div>
         <div class="checkbox-item">
           <input type="checkbox" id="hana" value="هنا" checked>
-          <label for="hana">هنا</label>
+          <label for="hana">حنا</label>
         </div>
         <div class="checkbox-item">
           <input type="checkbox" id="arad" value="آراد" checked>
           <label for="arad">آراد</label>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- بخش نام معلم (آکاردئون جدید) -->
+  <div class="accordion-section open" id="teacherSection">
+    <div class="accordion-header" onclick="toggleAccordion('teacherSection')">
+      <h3>🧑‍🏫 نام معلم</h3>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="header-summary" id="teacherSummary"></span>
+        <span class="arrow">▼</span>
+      </div>
+    </div>
+    <div class="accordion-body">
+      <div class="field">
+        <select id="teacher">
+          <option value="">— انتخاب کنید —</option>
+          <option value="یکتا امیری">یکتا امیری</option>
+          <option value="کوثر اسکندری">کوثر اسکندری</option>
+          <option value="هانیه افشار">هانیه افشار</option>
+          <option value="نازنین تقوی">نازنین تقوی</option>
+          <option value="مینا صفرنژاد">مینا صفرنژاد</option>
+          <option value="آیسان میرزایی">آیسان میرزایی</option>
+          <option value="میینا برزگر">میینا برزگر</option>
+          <option value="مریم نوروزی">مریم نوروزی</option>
+          <option value="مریم فروتن">مریم فروتن</option>
+          <option value="فرزانه عظیمی">فرزانه عظیمی</option>
+          <option value="امیرحسین پالیزدار">امیرحسین پالیزدار</option>
+          <option value="آنیتا آراسته">آنیتا آراسته</option>
+        </select>
       </div>
     </div>
   </div>
@@ -652,6 +683,14 @@
   });
   updatePreview();
 
+  // ===== نام معلم =====
+  const teacherEl = document.getElementById('teacher');
+  const teacherSummary = document.getElementById('teacherSummary');
+
+  teacherEl.addEventListener('change', () => {
+    teacherSummary.textContent = teacherEl.value || '';
+  });
+
   // ===== شهریه =====
   const payTypeEl = document.getElementById('payType');
   const amountEl = document.getElementById('amount');
@@ -751,6 +790,7 @@
     if (data.book) text += `📚 کتاب: ${data.book}\n\n`;
     if (data.reason) text += `📌 دلیل یادداشت: ${data.reason}\n\n`;
     if (data.mentions.length > 0) text += `👥 اشاره به: ${data.mentions.join('، ')}\n\n`;
+    if (data.teacher) text += `🧑‍🏫 نام معلم: ${data.teacher}\n\n`;
     if (data.payType || data.amount) {
       text += `💰 شهریه:\n`;
       if (data.payType) text += `   • نوع پرداخت: ${data.payType}\n`;
@@ -776,6 +816,7 @@
     if (data.book) text += `📚 <b>کتاب:</b> ${data.book}\n\n`;
     if (data.reason) text += `📌 <b>دلیل یادداشت:</b> ${data.reason}\n\n`;
     if (data.mentions.length > 0) text += `👥 <b>اشاره به:</b> ${data.mentions.join('، ')}\n\n`;
+    if (data.teacher) text += `🧑‍🏫 <b>نام معلم:</b> ${data.teacher}\n\n`;
     if (data.payType || data.amount) {
       text += `💰 <b>شهریه:</b>\n`;
       if (data.payType) text += `   • نوع پرداخت: ${data.payType}\n`;
@@ -810,6 +851,7 @@
       book: document.getElementById('book').value,
       reason: document.getElementById('reason').value,
       mentions: getMentions(),
+      teacher: teacherEl.value,
       payType: payTypeEl.value,
       amount: amountValue,
       isCustomAmount: amountEl.value === 'custom',
@@ -829,23 +871,18 @@
       alert('لطفاً مقدار دلخواه شهریه را وارد کنید!'); return;
     }
 
-    // ==========================================
     // 1. اول متن آماده میشه و فوری در سایت نمایش داده میشه
-    // ==========================================
     lastPlainText = buildPlainText(data);
     resultTextBox.textContent = lastPlainText;
     
-    // باز کردن باکس نتیجه و اسکرول خودکار به سمتش (تا کاربر ببینه)
+    // باز کردن باکس نتیجه و اسکرول خودکار
     resultSection.classList.add('show');
     resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-    // مخفی کردن پیام‌های قبلی
     success.style.display = 'none';
     errorMsg.style.display = 'none';
 
-    // ==========================================
     // 2. شروع ارسال در پس‌زمینه به تلگرام
-    // ==========================================
     saveBtn.disabled = true;
     saveBtn.textContent = '⏳ در حال ارسال به تلگرام...';
 
@@ -922,6 +959,9 @@
         cb.checked = data.mentions.includes(cb.value);
       });
     }
+
+    teacherEl.value = data.teacher || '';
+    if (data.teacher) teacherSummary.textContent = data.teacher;
 
     payTypeEl.value = data.payType || '';
 
